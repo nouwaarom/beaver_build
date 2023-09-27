@@ -2,6 +2,8 @@ use std::process::Command;
 use nix::unistd::{execv, fork, ForkResult, getpid, write};
 use nix::sys::wait::waitpid;
 use libc::{_exit, STDOUT_FILENO};
+mod dependency_graph;
+use dependency_graph::{DependencyGraph};
 
 fn main() {
     println!("Hello, world!");
@@ -12,6 +14,8 @@ fn main() {
 
     let output_string = String::from_utf8(output.stdout.as_slice().to_vec()).expect("Invalid characters in output");
     println!("GCC stdout: {}", output_string);
+
+    let mut dependency_graph = DependencyGraph::new();
 
     match unsafe{fork()} {
         Ok(ForkResult::Parent { child, .. }) => {
