@@ -13,13 +13,13 @@ enum DependencyType {
 
 #[derive(Debug)]
 pub struct DependencyNode {
+    // TODO, add name
     dep_type: DependencyType,
     files: Vec<String>,
-    // TODOm maybe make these private
+    // TODO, maybe make these private
     children: Vec<Ref<DependencyNode>>,
     parent: Option<Ref<DependencyNode>>,
 }
-
 
 #[derive(Default, Debug)]
 pub struct DependencyGraph {
@@ -29,20 +29,53 @@ pub struct DependencyGraph {
 impl DependencyGraph {
     pub fn new() -> DependencyGraph {
         return DependencyGraph::default();
+}
+
+    pub fn add_executable(&mut self, files: Vec<String>) -> Ref<DependencyNode> {
+        let node = DependencyNode {
+            dep_type: DependencyType::EXECUTABLE,
+            files: files,
+            children: vec!(),
+            parent: None,
+        };
+
+        return self.add_node(node);
     }
 
-    pub fn add_dependency() {
+    pub fn add_interface(&mut self, files: Vec<String>, parent: Ref<DependencyNode>) -> Ref<DependencyNode> {
+        let node = DependencyNode {
+            dep_type: DependencyType::INTERFACE,
+            files: files,
+            children: vec!(),
+            parent: Some(parent),
+        };
+
+        return self.add_node(node);
+    }
+
+    fn add_node(&mut self, node: DependencyNode) -> Ref<DependencyNode> {
+        let index = self.arena.len();
+        let parent = node.parent.clone();
+        self.arena.push(node);
+
+        let node_ref: Ref<DependencyNode> = Ref {
+            idx: index,
+            _type: std::marker::PhantomData,
+        };
+
+        // Add child to parent. 
+        if parent.is_some() {
+            self.add_child(parent.unwrap(), node_ref);
         }
+
+        return node_ref;
+    }
+
+    fn add_child(&mut self, parent: Ref<DependencyNode>, child: Ref<DependencyNode>) {
+        self.arena[parent.idx].children.push(child);
+    }
 }
 
-// TODO:
-// - Define struct for node (type, location, dependencies)
-// - create a graph datastructure based on an arena
-
-
-pub fn create_graph() {
-    println!("Creating a graph")
-}
 
 pub struct Ref<T> {
     idx: usize,

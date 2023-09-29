@@ -1,21 +1,32 @@
-use std::process::Command;
+mod dependency_graph;
+mod filesystem;
+mod work_pool;
+
 use nix::unistd::{execv, fork, ForkResult, getpid, write};
 use nix::sys::wait::waitpid;
 use libc::{_exit, STDOUT_FILENO};
-mod dependency_graph;
 use dependency_graph::{DependencyGraph};
+use filesystem::read_dir; 
+use work_pool::{execute_task};
 
 fn main() {
     println!("Hello, world!");
     let pid = getpid();
     println!("I am the parent and have pid: {}", pid);
 
-    let output = Command::new("/usr/bin/gcc").arg("--version").output().expect("Failed to execute command");
-
-    let output_string = String::from_utf8(output.stdout.as_slice().to_vec()).expect("Invalid characters in output");
-    println!("GCC stdout: {}", output_string);
-
     let mut dependency_graph = DependencyGraph::new();
+    let root = dependency_graph.add_executable(vec!["a".to_string(), "b".to_string()]);
+    dependency_graph.add_interface(vec!["ia".to_string()], root);
+    dependency_graph.add_interface(vec!["ib".to_string()], root);
+    println!("Graph: {:#?}", dependency_graph);
+
+    let dir_contents = read_dir("./data/clib");
+    println!("Dir: {:#?}", dir_contents);
+
+    // TODO, figure out how to put the files in the dependency graph
+
+    /*
+    execute_task();
 
     match unsafe{fork()} {
         Ok(ForkResult::Parent { child, .. }) => {
@@ -32,4 +43,5 @@ fn main() {
         }
         Err(_) => println!("Fork failed"),
     }
+    */
 }
