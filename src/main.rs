@@ -6,7 +6,7 @@ use nix::unistd::{execv, fork, ForkResult, getpid, write};
 use nix::sys::wait::waitpid;
 use libc::{_exit, STDOUT_FILENO};
 use dependency_graph::{DependencyGraph};
-use filesystem::read_dir; 
+use filesystem::{DirReader}; 
 use work_pool::{execute_task};
 
 fn main() {
@@ -20,8 +20,17 @@ fn main() {
     dependency_graph.add_interface(vec!["ib".to_string()], root);
     println!("Graph: {:#?}", dependency_graph);
 
-    let dir_contents = read_dir("./data/clib");
-    println!("Dir: {:#?}", dir_contents);
+    let src_dir_contents = DirReader::new_for("./data/clib/src");
+    println!("Source sources: {:#?}", src_dir_contents.get_files_with_extension("c"));
+    println!("Source headers: {:#?}", src_dir_contents.get_files_with_extension("h"));
+
+    let common_dir_contents = DirReader::new_for("./data/clib/src/common");
+    println!("Common sources: {:#?}", common_dir_contents.get_files_with_extension("c"));
+    println!("Common headers: {:#?}", common_dir_contents.get_files_with_extension("h"));
+
+    let dep_dir_contents = DirReader::new_recursive_for("./data/clib/deps");
+    println!("Dep sources: {:#?}", dep_dir_contents.get_files_with_extension("c"));
+    println!("Dep headers: {:#?}", dep_dir_contents.get_files_with_extension("h"));
 
     // TODO, figure out how to put the files in the dependency graph
 
