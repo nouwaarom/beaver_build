@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 #[derive(Debug)]
 enum DependencyType {
     INTERFACE,
-    LIB,
+    LIBRARY,
     EXECUTABLE,
 }
 
@@ -45,6 +45,17 @@ impl DependencyGraph {
     pub fn add_interface(&mut self, files: Vec<String>, parent: Ref<DependencyNode>) -> Ref<DependencyNode> {
         let node = DependencyNode {
             dep_type: DependencyType::INTERFACE,
+            files: files,
+            children: vec!(),
+            parent: Some(parent),
+        };
+
+        return self.add_node(node);
+    }
+
+    pub fn add_library(&mut self, files: Vec<String>, parent: Ref<DependencyNode>) -> Ref<DependencyNode> {
+        let node = DependencyNode {
+            dep_type: DependencyType::LIBRARY,
             files: files,
             children: vec!(),
             parent: Some(parent),

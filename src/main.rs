@@ -15,24 +15,24 @@ fn main() {
     println!("I am the parent and have pid: {}", pid);
 
     let mut dependency_graph = DependencyGraph::new();
-    let root = dependency_graph.add_executable(vec!["a".to_string(), "b".to_string()]);
-    dependency_graph.add_interface(vec!["ia".to_string()], root);
-    dependency_graph.add_interface(vec!["ib".to_string()], root);
-    println!("Graph: {:#?}", dependency_graph);
 
     let src_dir_contents = DirReader::new_for("./data/clib/src");
-    println!("Source sources: {:#?}", src_dir_contents.get_files_with_extension("c"));
-    println!("Source headers: {:#?}", src_dir_contents.get_files_with_extension("h"));
+    let root = dependency_graph.add_executable(src_dir_contents.get_files_with_extension("c"));
+    let root_interface = dependency_graph.add_interface(src_dir_contents.get_files_with_extension("h"), root);
 
     let common_dir_contents = DirReader::new_for("./data/clib/src/common");
-    println!("Common sources: {:#?}", common_dir_contents.get_files_with_extension("c"));
-    println!("Common headers: {:#?}", common_dir_contents.get_files_with_extension("h"));
+    let common = dependency_graph.add_library(common_dir_contents.get_files_with_extension("c"), root);
+    let common_interface = dependency_graph.add_interface(common_dir_contents.get_files_with_extension("h"), common);
 
-    let dep_dir_contents = DirReader::new_recursive_for("./data/clib/deps");
-    println!("Dep sources: {:#?}", dep_dir_contents.get_files_with_extension("c"));
-    println!("Dep headers: {:#?}", dep_dir_contents.get_files_with_extension("h"));
+    // TODO, read all directories in deps seperately and treat them as separate dependencies
+    let dep_dirs = DirReader::get_subdirs("./data/clib/deps");
+    for dep_dir in dep_dirs {
+        let dep_dir_contents = DirReader::new_for(&dep_dir);
+        let dep = dependency_graph.add_library(dep_dir_contents.get_files_with_extension("c"), root);
+        let dep_interface = dependency_graph.add_interface(dep_dir_contents.get_files_with_extension("h"), dep);
+    }
 
-    // TODO, figure out how to put the files in the dependency graph
+    println!("Graph: {:#?}", dependency_graph);
 
     /*
     execute_task();
