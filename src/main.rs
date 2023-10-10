@@ -1,12 +1,14 @@
 mod dependency_graph;
 mod filesystem;
 mod work_pool;
+mod graph_walker;
 
 use nix::unistd::{execv, fork, ForkResult, getpid, write};
 use nix::sys::wait::waitpid;
 use libc::{_exit, STDOUT_FILENO};
 use dependency_graph::{DependencyGraph};
 use filesystem::{DirReader}; 
+use graph_walker::{GraphWalker};
 use work_pool::{execute_task};
 
 fn main() {
@@ -17,23 +19,28 @@ fn main() {
     let mut dependency_graph = DependencyGraph::new();
 
     let src_dir_contents = DirReader::new_for("./data/clib/src");
-    let root = dependency_graph.add_executable(src_dir_contents.get_files_with_extension("c"));
-    let root_interface = dependency_graph.add_interface(src_dir_contents.get_files_with_extension("h"), root);
+    let root = dependency_graph.add_executable("clib", src_dir_contents.get_files_with_extension("c"));
+    let root_interface = dependency_graph.add_interface("clib_headers", src_dir_contents.get_files_with_extension("h"), root);
 
     let common_dir_contents = DirReader::new_for("./data/clib/src/common");
-    let common = dependency_graph.add_library(common_dir_contents.get_files_with_extension("c"), root);
-    let common_interface = dependency_graph.add_interface(common_dir_contents.get_files_with_extension("h"), common);
+    let common = dependency_graph.add_library("common_lib", common_dir_contents.get_files_with_extension("c"), root);
+    let common_interface = dependency_graph.add_interface("common_headers", common_dir_contents.get_files_with_extension("h"), common);
 
     // TODO, read all directories in deps seperately and treat them as separate dependencies
     let dep_dirs = DirReader::get_subdirs("./data/clib/deps");
     for dep_dir in dep_dirs {
         let dep_dir_contents = DirReader::new_for(&dep_dir);
-        let dep = dependency_graph.add_library(dep_dir_contents.get_files_with_extension("c"), root);
-        let dep_interface = dependency_graph.add_interface(dep_dir_contents.get_files_with_extension("h"), dep);
+        let dep_name = format!("{}_lib", dep_dir);
+        let dep = dependency_graph.add_library(&dep_name, dep_dir_contents.get_files_with_extension("c"), common);
+        let dep_interface_name = format!("{}_headers", dep_dir);
+        let dep_interface = dependency_graph.add_interface(&dep_interface_name, dep_dir_contents.get_files_with_extension("h"), dep);
     }
 
     println!("Graph: {:#?}", dependency_graph);
 
+    let mut graph_walker = GraphWalker::new(&mut dependency_graph);
+
+    graph_walker.walk(root);
     /*
     execute_task();
 

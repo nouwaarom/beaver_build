@@ -13,7 +13,7 @@ enum DependencyType {
 
 #[derive(Debug)]
 pub struct DependencyNode {
-    // TODO, add name
+    name: String,
     dep_type: DependencyType,
     files: Vec<String>,
     // TODO, maybe make these private
@@ -29,11 +29,12 @@ pub struct DependencyGraph {
 impl DependencyGraph {
     pub fn new() -> DependencyGraph {
         return DependencyGraph::default();
-}
+    }
 
-    pub fn add_executable(&mut self, files: Vec<String>) -> Ref<DependencyNode> {
+    pub fn add_executable(&mut self, name: &str, files: Vec<String>) -> Ref<DependencyNode> {
         let node = DependencyNode {
             dep_type: DependencyType::EXECUTABLE,
+            name: name.to_owned(),
             files: files,
             children: vec!(),
             parent: None,
@@ -42,9 +43,10 @@ impl DependencyGraph {
         return self.add_node(node);
     }
 
-    pub fn add_interface(&mut self, files: Vec<String>, parent: Ref<DependencyNode>) -> Ref<DependencyNode> {
+    pub fn add_interface(&mut self, name: &str, files: Vec<String>, parent: Ref<DependencyNode>) -> Ref<DependencyNode> {
         let node = DependencyNode {
             dep_type: DependencyType::INTERFACE,
+            name: name.to_owned(),
             files: files,
             children: vec!(),
             parent: Some(parent),
@@ -53,15 +55,30 @@ impl DependencyGraph {
         return self.add_node(node);
     }
 
-    pub fn add_library(&mut self, files: Vec<String>, parent: Ref<DependencyNode>) -> Ref<DependencyNode> {
+    pub fn add_library(&mut self, name: &str, files: Vec<String>, parent: Ref<DependencyNode>) -> Ref<DependencyNode> {
         let node = DependencyNode {
             dep_type: DependencyType::LIBRARY,
+            name: name.to_owned(),
             files: files,
             children: vec!(),
             parent: Some(parent),
         };
 
         return self.add_node(node);
+    }
+
+    pub fn get_name(&self, node: Ref<DependencyNode>) -> String {
+        let node = self.get_node(node);
+        return node.name.clone();
+    }
+
+    pub fn get_dependencies(&self, node: Ref<DependencyNode>) -> Vec<Ref<DependencyNode>> {
+        let node = self.get_node(node);
+        return node.children.clone();
+    }
+
+    fn get_node(&self, node: Ref<DependencyNode>) -> &DependencyNode {
+        return &self.arena[node.idx];
     }
 
     fn add_node(&mut self, node: DependencyNode) -> Ref<DependencyNode> {
