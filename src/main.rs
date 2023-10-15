@@ -2,19 +2,38 @@ mod dependency_graph;
 mod filesystem;
 mod work_pool;
 mod graph_walker;
+mod builder;
 
+use std::env;
+use std::fs;
+use std::io::{ErrorKind};
 use nix::unistd::{execv, fork, ForkResult, getpid, write};
 use nix::sys::wait::waitpid;
 use libc::{_exit, STDOUT_FILENO};
+use builder::{Builder}; 
 use dependency_graph::{DependencyGraph};
 use filesystem::{DirReader}; 
-use graph_walker::{GraphWalker};
-use work_pool::{execute_task};
+use graph_walker::{GraphWalker, GraphVisitor};
 
 fn main() {
     println!("Hello, world!");
-    let pid = getpid();
-    println!("I am the parent and have pid: {}", pid);
+
+    let mut build_directory = env::current_dir().unwrap();
+    build_directory.push("beaver_build_debug");
+
+    println!("Build directory: {}", build_directory.display());
+    match fs::create_dir(build_directory.clone()) {
+        Ok(_) => {
+            println!("Created build directory");
+        },
+        Err(e) if e.kind() == ErrorKind::AlreadyExists => {
+            println!("Build directory already exists");
+        }, 
+        Err(e) => {
+            println!("FATAL: Could not create build directory {}", e);
+            return;
+        },
+    }
 
     let mut dependency_graph = DependencyGraph::new();
 
@@ -36,13 +55,18 @@ fn main() {
         let dep_interface = dependency_graph.add_interface(&dep_interface_name, dep_dir_contents.get_files_with_extension("h"), dep);
     }
 
-    println!("Graph: {:#?}", dependency_graph);
+    //println!("Graph: {:#?}", dependency_graph);
 
     let mut graph_walker = GraphWalker::new(&mut dependency_graph);
 
-    graph_walker.walk(root);
+    let mut builder = Builder::new(build_directory.to_str().unwrap().to_owned());
+
+    graph_walker.walk(root, &mut builder as &mut dyn GraphVisitor);
+
     /*
     execute_task();
+    //let pid = getpid();
+    //println!("I am the parent and have pid: {}", pid);
 
     match unsafe{fork()} {
         Ok(ForkResult::Parent { child, .. }) => {

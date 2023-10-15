@@ -4,8 +4,8 @@ use std::fmt::Formatter;
 use std::marker::PhantomData;
 
 
-#[derive(Debug)]
-enum DependencyType {
+#[derive(Debug, Copy, Clone)]
+pub enum DependencyType {
     INTERFACE,
     LIBRARY,
     EXECUTABLE,
@@ -75,6 +75,16 @@ impl DependencyGraph {
     pub fn get_dependencies(&self, node: Ref<DependencyNode>) -> Vec<Ref<DependencyNode>> {
         let node = self.get_node(node);
         return node.children.clone();
+    }
+
+    pub fn get_type(&self, node: Ref<DependencyNode>) -> DependencyType {
+        let node = self.get_node(node);
+        return node.dep_type;
+    }
+
+    pub fn get_files(&self, node: Ref<DependencyNode>) -> Vec<String> {
+        let node = self.get_node(node);
+        return node.files.clone();
     }
 
     fn get_node(&self, node: Ref<DependencyNode>) -> &DependencyNode {

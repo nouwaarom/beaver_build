@@ -1,5 +1,10 @@
 use crate::dependency_graph::{DependencyGraph, DependencyNode, Ref};
 
+pub trait GraphVisitor {
+    fn visit_pre_dependency(&mut self, graph: &DependencyGraph, node: Ref<DependencyNode>);  
+    fn visit_post_dependency(&mut self, graph: &DependencyGraph, node: Ref<DependencyNode>);  
+}
+
 pub struct GraphWalker<'a> {
     graph: &'a mut DependencyGraph,
 }
@@ -13,23 +18,22 @@ impl GraphWalker<'_> {
        return walker;
     }
 
-    pub fn walk(&mut self, root: Ref<DependencyNode>) {
+    pub fn walk(&mut self, root: Ref<DependencyNode>, visitor: &mut dyn GraphVisitor) {
         let name = self.graph.get_name(root);
         println!("Walking from: {}", name);
-        self.visit(root);
+        self.visit(root, visitor);
     }
 
     // TODO, pass a visiting class
-    fn visit(&self, node: Ref<DependencyNode>) {
+    fn visit(&self, node: Ref<DependencyNode>, visitor: &mut dyn GraphVisitor) {
         let dependencies = self.graph.get_dependencies(node); 
+
+        visitor.visit_pre_dependency(self.graph, node);
         // TODO, gather a complete list of dependencies that can be used to execute the build step.
         for dependency in dependencies {
-            self.visit(dependency);
+            self.visit(dependency, visitor);
         }
 
-        let name = self.graph.get_name(node);
-        println!("Ready to process: {}", name);
-        // Maybe use: https://docs.rs/enum_dispatch/latest/enum_dispatch/
-        // TODO, define a command class that can execute the build step 
+        visitor.visit_post_dependency(self.graph, node);
     }
 }
