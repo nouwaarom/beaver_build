@@ -42,6 +42,21 @@ impl DirReader {
         return filtered;
     }
 
+    pub fn has_file(&self, filename: &str) -> bool {
+        return self.files.iter().any(|path| {
+            // TODO, works for now but can be improved.
+            return path.ends_with(filename);
+        });
+    }
+
+    // TODO, add some error handling
+    pub fn get_file_contents(&self, filename: &str) -> String {
+       let file_path = self.files.iter().find(|path| { path.ends_with(filename) }).unwrap();
+       let content = fs::read(file_path).unwrap();
+
+       return String::from_utf8(content).unwrap();
+    }
+
     fn read_files_in_dir_recursive(&mut self, dir: &Path) -> io::Result<()> {
         if dir.is_dir() {
             for entry in fs::read_dir(dir)? {

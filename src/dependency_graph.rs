@@ -17,13 +17,14 @@ pub struct DependencyNode {
     dep_type: DependencyType,
     files: Vec<String>,
     // TODO, maybe make these private
-    children: Vec<Ref<DependencyNode>>,
-    parent: Option<Ref<DependencyNode>>,
+    requires: Vec<Ref<DependencyNode>>,
+    is_required_by: Vec<Ref<DependencyNode>>,
 }
 
 #[derive(Default, Debug)]
 pub struct DependencyGraph {
-    arena: Vec<DependencyNode> 
+    arena: Vec<DependencyNode>,
+    roots: Vec<Ref<DependencyNode>>,
 }
 
 impl DependencyGraph {
@@ -36,11 +37,15 @@ impl DependencyGraph {
             dep_type: DependencyType::EXECUTABLE,
             name: name.to_owned(),
             files: files,
-            children: vec!(),
-            parent: None,
+            requires: vec![],
+            is_required_by: vec![],
         };
 
-        return self.add_node(node);
+        let node_ref = self.add_node(node);
+
+        self.roots.push(node_ref);
+
+        return node_ref;
     }
 
     pub fn add_interface(&mut self, name: &str, files: Vec<String>, parent: Ref<DependencyNode>) -> Ref<DependencyNode> {
@@ -48,8 +53,8 @@ impl DependencyGraph {
             dep_type: DependencyType::INTERFACE,
             name: name.to_owned(),
             files: files,
-            children: vec!(),
-            parent: Some(parent),
+            requires: vec![],
+            is_required_by: vec![parent],
         };
 
         return self.add_node(node);
@@ -60,11 +65,15 @@ impl DependencyGraph {
             dep_type: DependencyType::LIBRARY,
             name: name.to_owned(),
             files: files,
-            children: vec!(),
-            parent: Some(parent),
+            requires: vec![],
+            is_required_by: vec![parent],
         };
 
         return self.add_node(node);
+    }
+
+    pub fn get_roots(&self) -> Vec<Ref<DependencyNode>> {
+        return self.roots.clone();
     }
 
     pub fn get_name(&self, node: Ref<DependencyNode>) -> String {
@@ -74,7 +83,7 @@ impl DependencyGraph {
 
     pub fn get_dependencies(&self, node: Ref<DependencyNode>) -> Vec<Ref<DependencyNode>> {
         let node = self.get_node(node);
-        return node.children.clone();
+        return node.requires.clone();
     }
 
     pub fn get_type(&self, node: Ref<DependencyNode>) -> DependencyType {
@@ -87,13 +96,15 @@ impl DependencyGraph {
         return node.files.clone();
     }
 
+    // TODO, find by name
+
     fn get_node(&self, node: Ref<DependencyNode>) -> &DependencyNode {
         return &self.arena[node.idx];
     }
 
     fn add_node(&mut self, node: DependencyNode) -> Ref<DependencyNode> {
         let index = self.arena.len();
-        let parent = node.parent.clone();
+        let is_required_by = node.is_required_by.clone();
         self.arena.push(node);
 
         let node_ref: Ref<DependencyNode> = Ref {
@@ -101,16 +112,16 @@ impl DependencyGraph {
             _type: std::marker::PhantomData,
         };
 
-        // Add child to parent. 
-        if parent.is_some() {
-            self.add_child(parent.unwrap(), node_ref);
+        // Add child to is_required_by. 
+        for requiree in is_required_by {
+            self.add_requirement(requiree, node_ref);
         }
 
         return node_ref;
     }
 
-    fn add_child(&mut self, parent: Ref<DependencyNode>, child: Ref<DependencyNode>) {
-        self.arena[parent.idx].children.push(child);
+    fn add_requirement(&mut self, origin: Ref<DependencyNode>, requirement: Ref<DependencyNode>) {
+        self.arena[origin.idx].requires.push(requirement);
     }
 }
 
