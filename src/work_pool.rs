@@ -1,4 +1,5 @@
 use std::process::{Command, ExitStatus};
+use itertools::Itertools;
 
 pub fn execute_compiler(source_file: String, include_dirs: Vec<String>, output_file: String) -> Result<String, String> {
     let mut command_root = Command::new("/usr/bin/gcc");
@@ -24,6 +25,10 @@ pub fn execute_compiler(source_file: String, include_dirs: Vec<String>, output_f
                     return Ok(output_string);
                 },
                 a => {
+                    // Add extra debug information in case of a compile failure
+                    let args = command.get_args().into_iter().map(|a| a.to_str().unwrap() ).join(" ");
+                    println!("gcc {}", args);
+
                     let error_string = String::from_utf8(output.stderr.as_slice().to_vec()).expect("Invalid characters in output");
                     return Err(format!("Failed to compile, exit status: {}, error: {}", a, error_string));
                 }
@@ -38,13 +43,9 @@ pub fn execute_compiler(source_file: String, include_dirs: Vec<String>, output_f
 pub fn execute_linker(main_file: String, object_files: Vec<String>, output_file: String) -> Result<String, String> {
     let mut command_root = Command::new("/usr/bin/gcc");
 
-    // We want to link
-    let command = command_root.arg("-o");
-
     let mut command = command_root.arg(main_file);
 
     for object_file in object_files {
-        command = command.arg("-I");
         command = command.arg(object_file);
      }
 
@@ -59,8 +60,12 @@ pub fn execute_linker(main_file: String, object_files: Vec<String>, output_file:
                     return Ok(output_string);
                 },
                 a => {
+                    // Add extra debug information in case of a linking failure
+                    let args = command.get_args().into_iter().map(|a| a.to_str().unwrap() ).join(" ");
+                    println!("gcc {}", args);
+
                     let error_string = String::from_utf8(output.stderr.as_slice().to_vec()).expect("Invalid characters in output");
-                    return Err(format!("Failed to compile, exit status: {}, error: {}", a, error_string));
+                    return Err(format!("Failed to link, exit status: {}, error: {}", a, error_string));
                 }
             }
         },

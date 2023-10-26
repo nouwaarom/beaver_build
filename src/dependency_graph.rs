@@ -4,7 +4,7 @@ use std::fmt::Formatter;
 use std::marker::PhantomData;
 
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum DependencyType {
     INTERFACE,
     LIBRARY,
@@ -72,6 +72,32 @@ impl DependencyGraph {
         return self.add_node(node);
     }
 
+    /// Adds a requirement relation between origin and requires
+    /// Store that origin requires requires
+    /// And that requires is required by origin
+    pub fn add_requirement(&mut self, origin: Ref<DependencyNode>, requires: Ref<DependencyNode>) {
+        self.add_requirement_to_node(origin, requires);
+        self.add_is_required_by_to_node(requires, origin);
+    }
+
+    pub fn find_interface(&self, name: &str) -> Option<Ref<DependencyNode>> {
+        for (index, node) in self.arena.iter().enumerate() {
+            if node.dep_type != DependencyType::INTERFACE {
+                continue;
+            }
+            if node.name.ends_with(name) { // Fix this, name is full path spec but dependency name
+                                           // is not.
+                let node_ref: Ref<DependencyNode> = Ref {
+                    idx: index,
+                    _type: std::marker::PhantomData,
+                };
+                return Some(node_ref);
+            }
+        }
+
+        return None;
+    }
+
     pub fn get_roots(&self) -> Vec<Ref<DependencyNode>> {
         return self.roots.clone();
     }
@@ -96,8 +122,6 @@ impl DependencyGraph {
         return node.files.clone();
     }
 
-    // TODO, find by name
-
     fn get_node(&self, node: Ref<DependencyNode>) -> &DependencyNode {
         return &self.arena[node.idx];
     }
@@ -114,14 +138,18 @@ impl DependencyGraph {
 
         // Add child to is_required_by. 
         for requiree in is_required_by {
-            self.add_requirement(requiree, node_ref);
+            self.add_requirement_to_node(requiree, node_ref);
         }
 
         return node_ref;
     }
-
-    fn add_requirement(&mut self, origin: Ref<DependencyNode>, requirement: Ref<DependencyNode>) {
+    
+    fn add_requirement_to_node(&mut self, origin: Ref<DependencyNode>, requirement: Ref<DependencyNode>) {
         self.arena[origin.idx].requires.push(requirement);
+    }
+
+    fn add_is_required_by_to_node(&mut self, origin: Ref<DependencyNode>, is_required_by: Ref<DependencyNode>) {
+        self.arena[origin.idx].is_required_by.push(is_required_by);
     }
 }
 
