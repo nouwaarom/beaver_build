@@ -11,12 +11,21 @@ pub enum DependencyType {
     EXECUTABLE,
 }
 
+#[derive(Debug, Clone)]
+pub enum DependencyOptions {
+    ExecutableOptions {
+        link_flags: Vec<String>,
+        link_libraries: Vec<String>,
+    },
+}
+
+
 #[derive(Debug)]
 pub struct DependencyNode {
     name: String,
     dep_type: DependencyType,
     files: Vec<String>,
-    // TODO, maybe make these private
+    options: Option<DependencyOptions>, 
     requires: Vec<Ref<DependencyNode>>,
     is_required_by: Vec<Ref<DependencyNode>>,
 }
@@ -37,6 +46,7 @@ impl DependencyGraph {
             dep_type: DependencyType::EXECUTABLE,
             name: name.to_owned(),
             files: files,
+            options: None,
             requires: vec![],
             is_required_by: vec![],
         };
@@ -53,6 +63,7 @@ impl DependencyGraph {
             dep_type: DependencyType::INTERFACE,
             name: name.to_owned(),
             files: files,
+            options: None,
             requires: vec![],
             is_required_by: vec![parent],
         };
@@ -65,6 +76,7 @@ impl DependencyGraph {
             dep_type: DependencyType::LIBRARY,
             name: name.to_owned(),
             files: files,
+            options: None,
             requires: vec![],
             is_required_by: vec![parent],
         };
@@ -78,6 +90,25 @@ impl DependencyGraph {
     pub fn add_requirement(&mut self, origin: Ref<DependencyNode>, requires: Ref<DependencyNode>) {
         self.add_requirement_to_node(origin, requires);
         self.add_is_required_by_to_node(requires, origin);
+    }
+
+    pub fn set_executable_options(&mut self, executable_ref: Ref<DependencyNode>, options: DependencyOptions) {
+        let executable = self.get_node_mut(executable_ref);
+        if let DependencyOptions::ExecutableOptions {..} = options {
+            executable.options = Some(options);
+        } else {
+            panic!("Trying to set non-executable options {:#?} to an executable {}!", options, executable.name);
+        }
+    }
+
+    pub fn get_options(&self, node_ref: Ref<DependencyNode>) -> Option<DependencyOptions> {
+        let node = self.get_node(node_ref);
+
+        if let Some(opt) = node.options.as_ref() {
+            Some(opt.clone())
+        } else {
+            None
+        }
     }
 
     pub fn find_interface(&self, name: &str) -> Option<Ref<DependencyNode>> {
@@ -124,6 +155,10 @@ impl DependencyGraph {
 
     fn get_node(&self, node: Ref<DependencyNode>) -> &DependencyNode {
         return &self.arena[node.idx];
+    }
+
+    fn get_node_mut(&mut self, node: Ref<DependencyNode>) -> &mut DependencyNode {
+        return &mut self.arena[node.idx];
     }
 
     fn add_node(&mut self, node: DependencyNode) -> Ref<DependencyNode> {

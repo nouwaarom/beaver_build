@@ -1,6 +1,6 @@
 // Configurator reads project structure and creates a dependency graph
 use serde_json::{Result, Value};
-use crate::dependency_graph::{DependencyGraph};
+use crate::dependency_graph::{DependencyGraph, DependencyOptions};
 use crate::filesystem::{DirReader};
 
 /// Loads a project based on a predefined structure and clib package.json files
@@ -14,7 +14,14 @@ pub fn configure_clib_project(directory: &str) -> DependencyGraph {
     for executable_src in src_dir_contents.get_files_with_extension("c") {
         let split_by_slash: Vec<_> = executable_src.trim_end_matches(".c").split("/").collect();
         let executable_name = split_by_slash.last().unwrap();
-        roots.push(dependency_graph.add_executable(&executable_name, vec![executable_src.clone()]));
+        let executable = dependency_graph.add_executable(&executable_name, vec![executable_src.clone()]);
+        // TODO, add a more modular way to configure this globally
+        let executable_options = DependencyOptions::ExecutableOptions {
+            link_libraries: vec!["curl".to_string()],
+            link_flags: vec![],
+        };
+        dependency_graph.set_executable_options(executable, executable_options);
+        roots.push(executable);
     }
     let root_interface = dependency_graph.add_interface("clib_headers", src_dir_contents.get_files_with_extension("h"), roots.first().unwrap().clone());
 

@@ -1,6 +1,7 @@
 use std::process::{Command, ExitStatus};
 use itertools::Itertools;
 
+// TODO, create builder objects for compiler.
 pub fn execute_compiler(source_file: String, include_dirs: Vec<String>, output_file: String) -> Result<String, String> {
     let mut command_root = Command::new("/usr/bin/gcc");
 
@@ -40,7 +41,14 @@ pub fn execute_compiler(source_file: String, include_dirs: Vec<String>, output_f
     }
 }
 
-pub fn execute_linker(main_file: String, object_files: Vec<String>, output_file: String) -> Result<String, String> {
+/// Manages construction of a linker command.
+pub struct LinkerBuilder {
+}
+
+impl LinkerBuilder {
+}
+
+pub fn execute_linker(main_file: String, object_files: Vec<String>, link_libraries: Vec<String>, output_file: String) -> Result<String, String> {
     let mut command_root = Command::new("/usr/bin/gcc");
 
     let mut command = command_root.arg(main_file);
@@ -48,6 +56,11 @@ pub fn execute_linker(main_file: String, object_files: Vec<String>, output_file:
     for object_file in object_files {
         command = command.arg(object_file);
      }
+
+    for link_library in link_libraries {
+        let link_flag = format!("-l{}", link_library);
+        command = command.arg(link_flag);
+    }
 
     command = command.arg("-o");
     command = command.arg(output_file);

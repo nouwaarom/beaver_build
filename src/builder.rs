@@ -1,4 +1,4 @@
-use crate::dependency_graph::{DependencyGraph, DependencyNode, DependencyType, Ref};
+use crate::dependency_graph::{DependencyGraph, DependencyNode, DependencyType, DependencyOptions, Ref};
 use crate::graph_walker::{GraphVisitor};
 use crate::work_pool::{execute_compiler, execute_linker};
 use std::path::{Path};
@@ -112,7 +112,14 @@ impl GraphVisitor for Builder {
                 // TODO, figure out how to specify extra libraries and link flags.
                 // Step 3, execute the linker to combine all object files into one executable
                 let executable_file = format!("{}/{}", self.build_dir, name);
-                match execute_linker(main_object, objects, executable_file.clone()) {
+
+                let executable_options = graph.get_options(node).unwrap();
+                let link_libraries = if let DependencyOptions::ExecutableOptions { link_flags, link_libraries } = executable_options {
+                    link_libraries.clone()
+                } else {
+                    vec![]
+                };
+                match execute_linker(main_object, objects, link_libraries, executable_file.clone()) {
                     Ok(output) => {
                         println!("Linked {}", executable_file);
                     },
