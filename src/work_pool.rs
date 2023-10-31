@@ -48,24 +48,22 @@ pub struct LinkerBuilder {
 impl LinkerBuilder {
 }
 
-pub fn execute_linker(main_file: String, object_files: Vec<String>, link_libraries: Vec<String>, output_file: String) -> Result<String, String> {
+pub fn execute_linker(object_files: Vec<String>, link_libraries: Vec<String>, output_file: String) -> Result<String, String> {
     let mut command_root = Command::new("/usr/bin/gcc");
 
-    let mut command = command_root.arg(main_file);
-
     for object_file in object_files {
-        command = command.arg(object_file);
+        command_root.arg(object_file);
      }
 
     for link_library in link_libraries {
         let link_flag = format!("-l{}", link_library);
-        command = command.arg(link_flag);
+        command_root.arg(link_flag);
     }
 
-    command = command.arg("-o");
-    command = command.arg(output_file);
+    command_root.arg("-o");
+    command_root.arg(output_file);
 
-    match command.output() {
+    match command_root.output() {
         Ok(output) => {
             match output.status.code().unwrap() {
                 0 => {
@@ -74,11 +72,12 @@ pub fn execute_linker(main_file: String, object_files: Vec<String>, link_librari
                 },
                 a => {
                     // Add extra debug information in case of a linking failure
-                    let args = command.get_args().into_iter().map(|a| a.to_str().unwrap() ).join(" ");
+                    let args = command_root.get_args().into_iter().map(|a| a.to_str().unwrap() ).join(" ");
                     println!("gcc {}", args);
 
                     let error_string = String::from_utf8(output.stderr.as_slice().to_vec()).expect("Invalid characters in output");
-                    return Err(format!("Failed to link, exit status: {}, error: {}", a, error_string));
+                    let error_truncated: String = error_string.chars().take(2000).collect();
+                    return Err(format!("Failed to link, exit status: {}, error: {}", a, error_truncated));
                 }
             }
         },

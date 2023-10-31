@@ -1,3 +1,4 @@
+use std::fmt;
 use core::fmt::Debug;
 use std::collections::HashMap;
 use std::fmt::Formatter;
@@ -19,7 +20,6 @@ pub enum DependencyOptions {
     },
 }
 
-
 #[derive(Debug)]
 pub struct DependencyNode {
     name: String,
@@ -35,6 +35,39 @@ pub struct DependencyGraph {
     arena: Vec<DependencyNode>,
     roots: Vec<Ref<DependencyNode>>,
 }
+
+impl fmt::Display for DependencyGraph {
+    // This trait requires `fmt` with this exact signature.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // Write strictly the first element into the supplied output
+        // stream: `f`. Returns `fmt::Result` which indicates whether the
+        // operation succeeded or failed. Note that `write!` uses syntax which
+        // is very similar to `println!`.
+        for root_ref in self.roots.iter() {
+            writeln!(f, "Root").unwrap();
+            self.print_node(*root_ref, 0, f);
+        }
+
+        return Ok(());
+    }
+
+}
+impl DependencyGraph {
+    fn print_node(&self, node_ref: Ref<DependencyNode>, indent: usize, f: &mut fmt::Formatter) {
+        let node = self.get_node(node_ref);
+        let space = String::from_utf8(vec![b' '; indent*2]).unwrap(); 
+        let dep_type = match node.dep_type {
+            DependencyType::LIBRARY    => "library:   ",
+            DependencyType::INTERFACE  => "interface: ",
+            DependencyType::EXECUTABLE => "executable:",
+        };
+        writeln!(f, "{}{} {}", space, dep_type, node.name).unwrap();
+        for dependency in node.requires.iter() {
+            self.print_node(*dependency, indent+1, f);
+        }
+    }
+}
+
 
 impl DependencyGraph {
     pub fn new() -> DependencyGraph {
@@ -58,27 +91,27 @@ impl DependencyGraph {
         return node_ref;
     }
 
-    pub fn add_interface(&mut self, name: &str, files: Vec<String>, parent: Ref<DependencyNode>) -> Ref<DependencyNode> {
+    pub fn add_interface(&mut self, name: &str, files: Vec<String>) -> Ref<DependencyNode> {
         let node = DependencyNode {
             dep_type: DependencyType::INTERFACE,
             name: name.to_owned(),
             files: files,
             options: None,
             requires: vec![],
-            is_required_by: vec![parent],
+            is_required_by: vec![],
         };
 
         return self.add_node(node);
     }
 
-    pub fn add_library(&mut self, name: &str, files: Vec<String>, parent: Ref<DependencyNode>) -> Ref<DependencyNode> {
+    pub fn add_library(&mut self, name: &str, files: Vec<String>) -> Ref<DependencyNode> {
         let node = DependencyNode {
             dep_type: DependencyType::LIBRARY,
             name: name.to_owned(),
             files: files,
             options: None,
             requires: vec![],
-            is_required_by: vec![parent],
+            is_required_by: vec![],
         };
 
         return self.add_node(node);

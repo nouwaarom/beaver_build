@@ -18,6 +18,12 @@ impl Builder {
             objects: vec![],
         };
     }
+
+    /// Reset the internal state of the builder so it can perform another build.
+    pub fn reset(&mut self) {
+        self.headers.clear();
+        self.objects.clear();
+    }
 }
 
 impl GraphVisitor for Builder {
@@ -58,7 +64,7 @@ impl GraphVisitor for Builder {
                     let source_name = source_path.file_name().unwrap().to_str().unwrap().to_owned(); 
                     let object_file = format!("{}/{}.o", self.build_dir, source_name);
                     match execute_compiler(source.clone(), headers.clone(), object_file.clone()) {
-                        Ok(output) => {
+                        Ok(_) => {
                             println!("Compiled {}", source);
                         },
                         Err(output) => {
@@ -77,29 +83,28 @@ impl GraphVisitor for Builder {
             DependencyType::EXECUTABLE => {
                 let headers = self.headers.pop().unwrap();
                 // Step 1, build our own sources.
-                let mut main_object = "".to_string();
                 let mut own_objects = vec![];
                 let sources = graph.get_files(node);
                 for source in sources {
+                    println!("Compiling executable source: {}", source);
                     let source_path = Path::new(&source);
                     let source_name = source_path.file_name().unwrap().to_str().unwrap().to_owned(); 
                     let object_file = format!("{}/{}.o", self.build_dir, source_name);
                     match execute_compiler(source.clone(), headers.clone(), object_file.clone()) {
-                        Ok(output) => {
+                        Ok(_) => {
                             println!("Compiled {}", source);
                         },
                         Err(output) => {
                             // TODO, mark target as failed so that targets depending on this one
                             // will not be build.
                             println!("Failed to compile {}, error: {}", source, output);
+                            println!("ABORTING");
+                            return;
                         }
                     }
-                    // TODO, really hacky, define a better way to define the main object.
-                    if object_file.ends_with("clib-search.c.o") {
-                        main_object = object_file;
-                    } else {
-                       own_objects.push(object_file);
-                    }
+                    // TODO, fix unreliable build if more then one executable file is
+                    // specified. 
+                    own_objects.push(object_file);
                 }
 
                 // Step 2, combine our object files and that of our dependencies
@@ -109,7 +114,7 @@ impl GraphVisitor for Builder {
                     objects.extend(dependency_objects.clone());
                 }
 
-                // TODO, figure out how to specify extra libraries and link flags.
+                // TODO, add link flags.
                 // Step 3, execute the linker to combine all object files into one executable
                 let executable_file = format!("{}/{}", self.build_dir, name);
 
@@ -119,7 +124,7 @@ impl GraphVisitor for Builder {
                 } else {
                     vec![]
                 };
-                match execute_linker(main_object, objects, link_libraries, executable_file.clone()) {
+                match execute_linker(objects, link_libraries, executable_file.clone()) {
                     Ok(output) => {
                         println!("Linked {}", executable_file);
                     },

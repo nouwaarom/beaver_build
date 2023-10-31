@@ -8,13 +8,8 @@ mod builder;
 use std::env;
 use std::fs;
 use std::io::{ErrorKind};
-use nix::unistd::{execv, fork, ForkResult, getpid, write};
-use nix::sys::wait::waitpid;
-use libc::{_exit, STDOUT_FILENO};
 use builder::{Builder}; 
 use configurator::{configure_clib_project};
-use dependency_graph::{DependencyGraph};
-use filesystem::{DirReader}; 
 use graph_walker::{GraphWalker, GraphVisitor};
 
 fn main() {
@@ -38,7 +33,7 @@ fn main() {
     }
 
     let mut dependency_graph = configure_clib_project("./data/clib");
-    //println!("Graph: {:#?}", dependency_graph);
+    println!("Graph: {}", dependency_graph);
 
     let roots = dependency_graph.get_roots();
 
@@ -48,6 +43,7 @@ fn main() {
     // Build all top levels (executables)
     for root in roots {
         graph_walker.walk(root, &mut builder as &mut dyn GraphVisitor);
+        builder.reset();
     }
 
     /*

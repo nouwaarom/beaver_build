@@ -9,6 +9,17 @@ pub fn configure_clib_project(directory: &str) -> DependencyGraph {
 
     let src_dir = format!("{}/src", directory);
     let src_dir_contents = DirReader::new_for(&src_dir);
+
+    // All executable require this interface
+    let root_interface = dependency_graph.add_interface("clib_headers", src_dir_contents.get_files_with_extension("h"));
+
+    // Common dir is sort of a dependency dir.
+    let common_dir = format!("{}/src/common", directory);
+    let common_dir_contents = DirReader::new_for(&common_dir);
+    let common_library = dependency_graph.add_library("common_lib", common_dir_contents.get_files_with_extension("c"));
+    let common_interface = dependency_graph.add_interface("common_headers", common_dir_contents.get_files_with_extension("h"));
+    dependency_graph.add_requirement(common_library, common_interface);
+
     let mut roots = vec![];
     // All files in the root directories are executables and should be build.
     for executable_src in src_dir_contents.get_files_with_extension("c") {
@@ -21,18 +32,16 @@ pub fn configure_clib_project(directory: &str) -> DependencyGraph {
             link_flags: vec![],
         };
         dependency_graph.set_executable_options(executable, executable_options);
+        dependency_graph.add_requirement(executable, root_interface);
+        dependency_graph.add_requirement(executable, common_library);
+
         roots.push(executable);
     }
-    let root_interface = dependency_graph.add_interface("clib_headers", src_dir_contents.get_files_with_extension("h"), roots.first().unwrap().clone());
-
-    let common_dir = format!("{}/src/common", directory);
-    let common_dir_contents = DirReader::new_for(&common_dir);
-    let common = dependency_graph.add_library("common_lib", common_dir_contents.get_files_with_extension("c"), roots.first().unwrap().clone());
-    let common_interface = dependency_graph.add_interface("common_headers", common_dir_contents.get_files_with_extension("h"), common);
 
     // A bit hacky, but need to include the deps folder.
     let deps_dir_dummy = format!("{}/deps/dummy.h", directory);
-    let deps_interface = dependency_graph.add_interface("deps_headers", vec![deps_dir_dummy], common);
+    let deps_interface = dependency_graph.add_interface("deps_headers", vec![deps_dir_dummy]);
+    dependency_graph.add_requirement(common_library, deps_interface);
 
     let mut unresolved_dependencies = vec![];
 
@@ -43,9 +52,11 @@ pub fn configure_clib_project(directory: &str) -> DependencyGraph {
         let dep_dir_contents = DirReader::new_for(&dep_dir);
 
         let dep_name = format!("{}_lib", dep_dir);
-        let dep = dependency_graph.add_library(&dep_name, dep_dir_contents.get_files_with_extension("c"), common);
+        let dep = dependency_graph.add_library(&dep_name, dep_dir_contents.get_files_with_extension("c"));
+        dependency_graph.add_requirement(common_library, dep);
         let dep_interface_name = format!("{}_headers", dep_dir);
-        let dep_interface = dependency_graph.add_interface(&dep_interface_name, dep_dir_contents.get_files_with_extension("h"), dep);
+        let dep_interface = dependency_graph.add_interface(&dep_interface_name, dep_dir_contents.get_files_with_extension("h"));
+        dependency_graph.add_requirement(dep, dep_interface);
 
         let dependencies = get_clib_dependencies(&dep_dir_contents);
         if !dependencies.is_empty() { // Clib headers includes are of the form "dep_name/header.h"
