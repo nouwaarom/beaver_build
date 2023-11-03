@@ -1,13 +1,20 @@
+use std::collections::HashMap;
+use std::path::{Path};
 use crate::dependency_graph::{DependencyGraph, DependencyNode, DependencyType, DependencyOptions, Ref};
 use crate::graph_walker::{GraphVisitor};
 use crate::work_pool::{execute_compiler, execute_linker};
-use std::path::{Path};
 
-#[derive(Default)]
+/// Caches build information for this target. 
+struct LibraryNodeCache {
+    is_built: bool,
+    objects: Vec<String>,
+}
+
 pub struct Builder {
     build_dir: String,
     headers: Vec<Vec<String>>, // Stack of header files
     objects: Vec<Vec<String>>, // Stack of object files
+    library_cache: HashMap<Ref<DependencyNode>, LibraryNodeCache>
 }
 
 impl Builder {
@@ -16,6 +23,7 @@ impl Builder {
             build_dir,
             headers: vec![],
             objects: vec![],
+            library_cache: HashMap::new(),
         };
     }
 
@@ -37,7 +45,7 @@ impl GraphVisitor for Builder {
                 self.objects.push(vec![]);
             }
             DependencyType::EXECUTABLE => {
-                println!("Executable Pre process: {}", name);
+                // TODO, implement caching for executables.
                 self.headers.push(vec![]);
                 self.objects.push(vec![]);
             },
@@ -55,8 +63,18 @@ impl GraphVisitor for Builder {
                 self.headers.last_mut().unwrap().push(include_dir.to_str().unwrap().to_owned());
             },
             DependencyType::LIBRARY => {
+                // TODO, move to base handler.
                 let headers = self.headers.pop().unwrap();
 
+                // TODO, move to cache handler.
+                if self.library_cache.contains_key(&node) && self.library_cache[&node].is_built {
+                    let objects = self.library_cache[&node].objects.clone();
+                    self.objects.last_mut().unwrap().extend(objects);
+                    self.headers.last_mut().unwrap().extend(headers);
+                    return; // Library is already built, return cached objects.
+                }
+
+                // TODO, move to builder handler
                 let mut objects = vec![];
                 let sources = graph.get_files(node);
                 for source in sources {
@@ -76,7 +94,14 @@ impl GraphVisitor for Builder {
                     objects.push(object_file);
                 }
 
-                // Add our headers to our parents headers.
+                // TODO, move to cache handler
+                let node_cache = LibraryNodeCache {
+                    is_built: true,
+                    objects: objects.clone(),
+                };
+                self.library_cache.insert(node, node_cache);
+
+                // TODO, move to base.
                 self.objects.last_mut().unwrap().extend(objects);
                 self.headers.last_mut().unwrap().extend(headers);
             },
@@ -125,7 +150,7 @@ impl GraphVisitor for Builder {
                     vec![]
                 };
                 match execute_linker(objects, link_libraries, executable_file.clone()) {
-                    Ok(output) => {
+                    Ok(_) => {
                         println!("Linked {}", executable_file);
                     },
                     Err(output) => {
