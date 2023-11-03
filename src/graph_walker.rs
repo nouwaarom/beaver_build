@@ -1,7 +1,9 @@
 use crate::dependency_graph::{DependencyGraph, DependencyNode, Ref};
 
 pub trait GraphVisitor {
+    /// Will be executed before all the dependencies of the current node are processed.
     fn visit_pre_dependency(&mut self, graph: &DependencyGraph, node: Ref<DependencyNode>);  
+    /// Will be executed after all the dependencies of the current node are processed.
     fn visit_post_dependency(&mut self, graph: &DependencyGraph, node: Ref<DependencyNode>);  
 }
 
@@ -18,18 +20,17 @@ impl GraphWalker<'_> {
        return walker;
     }
 
+    /// Recursively walk a dependency graph.
     pub fn walk(&mut self, root: Ref<DependencyNode>, visitor: &mut dyn GraphVisitor) {
         let name = self.graph.get_name(root);
         println!("Walking from: {}", name);
         self.visit(root, visitor);
     }
 
-    // TODO, pass a visiting class
     fn visit(&self, node: Ref<DependencyNode>, visitor: &mut dyn GraphVisitor) {
         let dependencies = self.graph.get_dependencies(node); 
-
+    
         visitor.visit_pre_dependency(self.graph, node);
-        // TODO, gather a complete list of dependencies that can be used to execute the build step.
         for dependency in dependencies {
             self.visit(dependency, visitor);
         }
