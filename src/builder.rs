@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path};
 use crate::dependency_graph::{DependencyGraph, DependencyNode, DependencyType, DependencyOptions, Ref};
 use crate::graph_walker::{GraphVisitor};
-use crate::work_pool::{execute_compiler, execute_linker};
+use crate::work_pool::{WorkPool, WorkInstruction};
 
 /// Caches build information for this target. 
 struct LibraryNodeCache {
@@ -10,16 +10,18 @@ struct LibraryNodeCache {
     objects: Vec<String>,
 }
 
-pub struct Builder {
+pub struct Builder<'a> {
+    work_pool: &'a mut WorkPool,
     build_dir: String,
     headers: Vec<Vec<String>>, // Stack of header files
     objects: Vec<Vec<String>>, // Stack of object files
     library_cache: HashMap<Ref<DependencyNode>, LibraryNodeCache>
 }
 
-impl Builder {
-    pub fn new(build_dir: String) -> Builder {
+impl Builder<'_> {
+    pub fn new(build_dir: String, work_pool: &mut WorkPool) -> Builder {
         return Builder {
+            work_pool,
             build_dir,
             headers: vec![],
             objects: vec![],
@@ -34,7 +36,7 @@ impl Builder {
     }
 }
 
-impl GraphVisitor for Builder {
+impl GraphVisitor for Builder<'_> {
     fn visit_pre_dependency(&mut self, graph: &DependencyGraph, node: Ref<DependencyNode>) {
         let name = graph.get_name(node);
         match graph.get_type(node) {
@@ -81,7 +83,13 @@ impl GraphVisitor for Builder {
                     let source_path = Path::new(&source);
                     let source_name = source_path.file_name().unwrap().to_str().unwrap().to_owned(); 
                     let object_file = format!("{}/{}.o", self.build_dir, source_name);
-                    match execute_compiler(source.clone(), headers.clone(), object_file.clone()) {
+                    let compile_instruction = WorkInstruction::Compile {
+                        source_file: source.clone(),
+                        include_dirs: headers.clone(),
+                        output_file: object_file.clone(),
+                    };
+                    self.work_pool.schedule_work(compile_instruction);
+                    match self.work_pool.get_results() {
                         Ok(_) => {
                             println!("Compiled {}", source);
                         },
@@ -115,7 +123,14 @@ impl GraphVisitor for Builder {
                     let source_path = Path::new(&source);
                     let source_name = source_path.file_name().unwrap().to_str().unwrap().to_owned(); 
                     let object_file = format!("{}/{}.o", self.build_dir, source_name);
-                    match execute_compiler(source.clone(), headers.clone(), object_file.clone()) {
+
+                    let compile_instruction = WorkInstruction::Compile {
+                        source_file: source.clone(),
+                        include_dirs: headers.clone(),
+                        output_file: object_file.clone(),
+                    };
+                    self.work_pool.schedule_work(compile_instruction);
+                    match self.work_pool.get_results() {
                         Ok(_) => {
                             println!("Compiled {}", source);
                         },
@@ -149,7 +164,14 @@ impl GraphVisitor for Builder {
                 } else {
                     vec![]
                 };
-                match execute_linker(objects, link_libraries, executable_file.clone()) {
+
+                let link_instruction = WorkInstruction::Link {
+                    object_files: objects,
+                    link_libraries: link_libraries,
+                    output_file: executable_file.clone(),
+                };
+                self.work_pool.schedule_work(link_instruction);
+                match self.work_pool.get_results() {
                     Ok(_) => {
                         println!("Linked {}", executable_file);
                     },
