@@ -77,34 +77,43 @@ impl GraphVisitor for Builder<'_> {
                 }
 
                 // TODO, move to builder handler
+                let mut job_ids = vec![];
                 let mut objects = vec![];
                 let sources = graph.get_files(node);
                 for source in sources {
                     let source_path = Path::new(&source);
                     let source_name = source_path.file_name().unwrap().to_str().unwrap().to_owned(); 
                     let object_file = format!("{}/{}.o", self.build_dir, source_name);
+                    println!("Compiling {}", source);
                     let compile_instruction = WorkInstruction::Compile {
                         source_file: source.clone(),
                         include_dirs: headers.clone(),
                         output_file: object_file.clone(),
                     };
-                    self.work_pool.schedule_work(compile_instruction);
-                    match self.work_pool.get_results() {
-                        Ok(_) => {
-                            println!("Compiled {}", source);
-                        },
-                        Err(output) => {
-                            // TODO, mark target as failed so that targets depending on this one
-                            // will not be build.
-                            println!("Failed to compile {}, error: {}", source, output);
-                        }
-                    }
+                    let job_id = self.work_pool.schedule_work(compile_instruction);
+                    job_ids.push(job_id);
                     objects.push(object_file);
                 }
 
+                let mut target_built = true;
+                for job_id in job_ids {
+                    match self.work_pool.get_result_blocking(job_id) {
+                        Ok(_) => {
+                            continue;
+                        },
+                        Err(output) => {
+                            target_built = false;
+                            println!("Failed to compile, error: {}", output);
+                        }
+                    }
+                }
+
+                // TODO, mark target as failed so that targets depending on this one
+                // will not be build.
+
                 // TODO, move to cache handler
                 let node_cache = LibraryNodeCache {
-                    is_built: true,
+                    is_built: target_built,
                     objects: objects.clone(),
                 };
                 self.library_cache.insert(node, node_cache);
@@ -129,8 +138,8 @@ impl GraphVisitor for Builder<'_> {
                         include_dirs: headers.clone(),
                         output_file: object_file.clone(),
                     };
-                    self.work_pool.schedule_work(compile_instruction);
-                    match self.work_pool.get_results() {
+                    let job_id = self.work_pool.schedule_work(compile_instruction);
+                    match self.work_pool.get_result_blocking(job_id) {
                         Ok(_) => {
                             println!("Compiled {}", source);
                         },
@@ -170,8 +179,8 @@ impl GraphVisitor for Builder<'_> {
                     link_libraries: link_libraries,
                     output_file: executable_file.clone(),
                 };
-                self.work_pool.schedule_work(link_instruction);
-                match self.work_pool.get_results() {
+                let job_id = self.work_pool.schedule_work(link_instruction);
+                match self.work_pool.get_result_blocking(job_id) {
                     Ok(_) => {
                         println!("Linked {}", executable_file);
                     },
