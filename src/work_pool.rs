@@ -79,12 +79,9 @@ impl WorkPool {
 
     fn fetch_results_from_queue(&mut self) {
         let number_of_results_in_queue = cmp::max(0, (self.number_of_jobs_waiting as i64) - (self.pool.active_count() + self.pool.queued_count()) as i64);
-        println!("Results in queue: {}", number_of_results_in_queue);
         for _ in 0..number_of_results_in_queue {
-            println!("Fetching result");
             match self.channel_receiver.recv() {
                 Ok(result) => {
-                    println!("Fetched a result");
                     self.results.push(result);
                     self.number_of_jobs_waiting -= 1;
                 }
@@ -95,7 +92,6 @@ impl WorkPool {
 
     /// Blocks waiting for the next result.
     fn wait_for_result(&mut self) {
-        println!("Waiting for result");
         match self.channel_receiver.recv() {
             Ok(result) => {
                 self.results.push(result);
@@ -106,37 +102,6 @@ impl WorkPool {
     }
 }
 
-pub fn thread_pool_test() -> i64 {
-    let n_workers = 16;
-    let n_jobs = 100000;
-    let pool = ThreadPool::new(n_workers);
-
-    let (tx, rx) = channel();
-    let mut num_processed = 0;
-    let mut sum = 0;
-    for i in 0..n_jobs {
-        let tx = tx.clone();
-        pool.execute(move|| {
-            tx.send(i as i64).expect("channel will be there waiting for the pool");
-        });
-
-        let num_finished : i64 = (i - num_processed) - (pool.active_count() + pool.queued_count()) as i64;
-        if num_finished <= 0 {
-            continue;
-        }
-        num_processed += num_finished;
-        println!("{} jobs executed", num_processed);
-        
-        sum += rx.iter().take(num_finished as usize).fold(0, |a, b| a + b);
-    }
-
-    let num_left = (n_jobs - num_processed) as usize;
-
-    println!("{} jobs left", num_left);
-
-    return rx.iter().take(num_left).fold(sum, |a, b| a + b);
-}
-
 #[derive(Clone)]
 struct Worker {
     channel_sender: Sender<WorkResult>,
@@ -145,7 +110,6 @@ struct Worker {
 
 impl Worker {
     fn execute_work(self, instruction: WorkInstruction) {
-        println!("Starting job {} execution", self.job_id);
         let result = match instruction {
             WorkInstruction::Link { object_files, link_libraries, output_file } => {
                 self.execute_linker(object_files, link_libraries, output_file)
@@ -160,7 +124,6 @@ impl Worker {
             result
         }) {
             Ok(_) => {
-                println!("Job {} Execution done", self.job_id);
             },
             Err(e) => panic!("Failed to send job result: {}", e),
         }

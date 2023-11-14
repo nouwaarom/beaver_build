@@ -12,11 +12,10 @@ use std::time::{Duration, Instant};
 use builder::{Builder}; 
 use configurator::{configure_clib_project};
 use graph_walker::{GraphWalker, GraphVisitor};
-use work_pool::thread_pool_test;
 use work_pool::{WorkPool, WorkInstruction};
 
 fn main() {
-    println!("Hello, world!");
+    println!("Beavers will start building!");
 
     let mut build_directory = env::current_dir().unwrap();
     build_directory.push("beaver_build_debug");
@@ -40,17 +39,6 @@ fn main() {
 
     let mut work_pool = WorkPool::new(4);
     
-    //work_pool.schedule_work(WorkInstruction::Compile {
-    //    include_dirs: vec![],
-    //    output_file: "./data/clib/deps/list/list.c".to_string(),
-    //    source_file: "./beaver_build_debug/list.c.o".to_string(),
-    //});
-
-    //let result = work_pool.get_results();
-    //println!("Result: {:?}", result);
-
-    //return;
-
     let roots = dependency_graph.get_roots();
 
     let mut builder = Builder::new(build_directory.to_str().unwrap().to_owned(), &mut work_pool);
@@ -66,26 +54,4 @@ fn main() {
     let duration = start.elapsed();
 
     println!("Build time is: {} s", duration.as_secs_f32());
-
-    /*
-    execute_task();
-    //let pid = getpid();
-    //println!("I am the parent and have pid: {}", pid);
-
-    match unsafe{fork()} {
-        Ok(ForkResult::Parent { child, .. }) => {
-            println!("Continuing execution in parent process, new child has pid: {}", child);
-            waitpid(child, None).unwrap();
-        }
-        Ok(ForkResult::Child) => {
-            // Unsafe to use `println!` (or `unwrap`) here. See Safety.
-            let pid = getpid();
-            let message = format!("I'm a new child process and have pid: {}\n", pid);
-            write(libc::STDOUT_FILENO, message.as_bytes()).ok();
-
-            unsafe { libc::_exit(0) };
-        }
-        Err(_) => println!("Fork failed"),
-    }
-    */
 }
