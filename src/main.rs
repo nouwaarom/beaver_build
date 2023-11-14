@@ -39,17 +39,6 @@ fn main() {
 
     let mut work_pool = WorkPool::new(4);
     
-    //work_pool.schedule_work(WorkInstruction::Compile {
-    //    include_dirs: vec![],
-    //    output_file: "./data/clib/deps/list/list.c".to_string(),
-    //    source_file: "./beaver_build_debug/list.c.o".to_string(),
-    //});
-
-    //let result = work_pool.get_results();
-    //println!("Result: {:?}", result);
-
-    //return;
-
     let roots = dependency_graph.get_roots();
 
     let mut builder = Builder::new(build_directory.to_str().unwrap().to_owned(), &mut work_pool);
