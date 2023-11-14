@@ -8,6 +8,7 @@ mod builder;
 use std::env;
 use std::fs;
 use std::io::{ErrorKind};
+use std::time::{Duration, Instant};
 use builder::{Builder}; 
 use configurator::{configure_clib_project};
 use graph_walker::{GraphWalker, GraphVisitor};
@@ -56,10 +57,15 @@ fn main() {
     let mut graph_walker = GraphWalker::new(&mut dependency_graph);
 
     // Build all top levels (executables)
+    let start = Instant::now();
     for root in roots {
         graph_walker.walk(root, &mut builder as &mut dyn GraphVisitor);
         builder.reset();
     }
+
+    let duration = start.elapsed();
+
+    println!("Build time is: {} s", duration.as_secs_f32());
 
     /*
     execute_task();
