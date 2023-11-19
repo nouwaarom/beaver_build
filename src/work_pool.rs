@@ -19,7 +19,7 @@ pub enum WorkInstruction {
     },
 }
 
-struct WorkResult {
+pub struct WorkResult {
     job_id: usize,
     result: Result<String, String>,
 }
@@ -67,7 +67,8 @@ impl WorkPool {
             match self.results.iter().find_position(|res| res.job_id == job_id) {
                 None => {
                     // Result for this job_id not in yet, wait for the next job and check again.
-                    self.wait_for_result();
+                    let result = self.wait_for_result_from_channel();
+                    self.results.push(result);
                 },
                 Some(res) => {
                     let result = self.results.remove(res.0);
@@ -77,25 +78,34 @@ impl WorkPool {
         }
     }
 
-    fn fetch_results_from_queue(&mut self) {
-        let number_of_results_in_queue = cmp::max(0, (self.number_of_jobs_waiting as i64) - (self.pool.active_count() + self.pool.queued_count()) as i64);
-        for _ in 0..number_of_results_in_queue {
-            match self.channel_receiver.recv() {
-                Ok(result) => {
-                    self.results.push(result);
-                    self.number_of_jobs_waiting -= 1;
+    pub fn get_next_result_blocking(&mut self) -> Option<WorkResult> {
+        match self.results.pop() {
+            Some(result) => { return Some(result) },
+            None => {
+                if self.number_of_jobs_waiting > 0 {
+                    let result = self.wait_for_result_from_channel();
+                    return Some(result);
+                } else {
+                    return None;
                 }
-                Err(_) => {panic!("Could not receive job result from channel"); }
             }
         }
     }
 
+    fn fetch_results_from_queue(&mut self) {
+        let number_of_results_in_queue = cmp::max(0, (self.number_of_jobs_waiting as i64) - (self.pool.active_count() + self.pool.queued_count()) as i64);
+        for _ in 0..number_of_results_in_queue {
+            let result = self.wait_for_result_from_channel();
+            self.results.push(result);
+        }
+    }
+
     /// Blocks waiting for the next result.
-    fn wait_for_result(&mut self) {
+    fn wait_for_result_from_channel(&mut self) -> WorkResult {
         match self.channel_receiver.recv() {
             Ok(result) => {
-                self.results.push(result);
                 self.number_of_jobs_waiting -= 1;
+                return result;
             }
             Err(_) => {panic!("Could not receive job result from channel"); }
         }

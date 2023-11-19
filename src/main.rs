@@ -1,6 +1,7 @@
 mod configurator;
 mod dependency_graph;
 mod filesystem;
+mod scheduler;
 mod work_pool;
 mod graph_walker;
 mod builder;
@@ -8,11 +9,12 @@ mod builder;
 use std::env;
 use std::fs;
 use std::io::{ErrorKind};
-use std::time::{Duration, Instant};
+use std::time::{Instant};
 use builder::{Builder}; 
 use configurator::{configure_clib_project};
 use graph_walker::{GraphWalker, GraphVisitor};
-use work_pool::{WorkPool, WorkInstruction};
+use scheduler::{Scheduler};
+use work_pool::{WorkPool};
 
 fn main() {
     println!("Beavers will start building!");
@@ -39,18 +41,20 @@ fn main() {
 
     let mut work_pool = WorkPool::new(4);
     
-    let roots = dependency_graph.get_roots();
+    // Build all targets sequentially, uncomment to enable
+    //let roots = dependency_graph.get_roots();
+    //let mut builder = Builder::new(build_directory.to_str().unwrap().to_owned(), &mut work_pool);
+    //let mut graph_walker = GraphWalker::new(&mut dependency_graph);
+    //// Build all top levels (executables)
+    //for root in roots {
+    //    graph_walker.walk(root, &mut builder as &mut dyn GraphVisitor);
+    //    builder.reset();
+    //}
 
-    let mut builder = Builder::new(build_directory.to_str().unwrap().to_owned(), &mut work_pool);
-    let mut graph_walker = GraphWalker::new(&mut dependency_graph);
-
-    // Build all top levels (executables)
+    // Scheduler builds all targets parallel, depending on dependency
     let start = Instant::now();
-    for root in roots {
-        graph_walker.walk(root, &mut builder as &mut dyn GraphVisitor);
-        builder.reset();
-    }
-
+    let mut scheduler = Scheduler::new();
+    scheduler.build_all(&dependency_graph);
     let duration = start.elapsed();
 
     println!("Build time is: {} s", duration.as_secs_f32());
