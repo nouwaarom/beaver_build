@@ -1,7 +1,9 @@
 mod configurator;
 mod dependency_graph;
 mod filesystem;
+mod instructor;
 mod scheduler;
+mod target_data;
 mod work_pool;
 mod graph_walker;
 mod builder;
@@ -39,9 +41,8 @@ fn main() {
     let mut dependency_graph = configure_clib_project("./data/clib");
     println!("Graph: {}", dependency_graph);
 
-    let mut work_pool = WorkPool::new(4);
-    
     // Build all targets sequentially, uncomment to enable
+    //let mut work_pool = WorkPool::new(4);
     //let roots = dependency_graph.get_roots();
     //let mut builder = Builder::new(build_directory.to_str().unwrap().to_owned(), &mut work_pool);
     //let mut graph_walker = GraphWalker::new(&mut dependency_graph);
@@ -53,7 +54,7 @@ fn main() {
 
     // Scheduler builds all targets parallel, depending on dependency
     let start = Instant::now();
-    let mut scheduler = Scheduler::new();
+    let mut scheduler = Scheduler::new(16);
     scheduler.build_all(&dependency_graph);
     let duration = start.elapsed();
 
