@@ -1,6 +1,6 @@
 use std::path::{Path};
 use crate::work_pool::{WorkInstruction};
-use crate::dependency_graph::{DependencyGraph, DependencyNode, DependencyType, Ref};
+use crate::dependency_graph::{DependencyGraph, DependencyNode, DependencyType, DependencyOptions, Ref};
 use crate::target_data::{TargetData};
 
 pub struct Instructor<'a> {
@@ -8,7 +8,7 @@ pub struct Instructor<'a> {
     build_dir: String,
     node: Option<Ref<DependencyNode>>,
     target_data: Option<TargetData>,
-    dependency_data: Vec<TargetData>
+    dependency_data: Vec<TargetData>,
     work_instructions: Vec<WorkInstruction>,
 }
 
@@ -40,14 +40,14 @@ impl Instructor<'_> {
     }
 
     pub fn get_targetdata(&self) -> TargetData {
-        match self.target_data {
-            Some(data) => { return data; }
+        match &self.target_data {
+            Some(data) => { return data.clone(); }
             None => { panic!("Misuse of instructor"); }
         }
     }
 
     pub fn get_instructions(&self) -> Vec<WorkInstruction> {
-        return self.work_instructions;
+        return self.work_instructions.to_vec();
     }
 
     pub fn process(&mut self) {
@@ -68,12 +68,16 @@ impl Instructor<'_> {
                 });
             },
             DependencyType::LIBRARY => {
-                // TODO, extract headers from dependency data.
+                // Step 1, get required headers.
                 let mut include_dirs = vec![];
-                for dep_data in self.dependency_data {
+                for dep_data in self.dependency_data.iter() {
                     match dep_data {
-                        TargetData::LIBRARY { include_dirs: lib_include_dirs, .. } => { include_dirs.extend(lib_include_dirs); },
-                        TargetData::INTERFACE { include_dirs: lib_include_dirs } => { include_dirs.extend(lib_include_dirs); },
+                        TargetData::LIBRARY { include_dirs: lib_include_dirs, .. } => {
+                            include_dirs.extend(lib_include_dirs.to_vec());
+                        },
+                        TargetData::INTERFACE { include_dirs: lib_include_dirs } => {
+                            include_dirs.extend(lib_include_dirs.to_vec());
+                        },
                         _ => panic!("Unhelpful error message (:"),
                     }
                 }
@@ -101,40 +105,23 @@ impl Instructor<'_> {
                 });
             },
             DependencyType::EXECUTABLE => {
-                // TODO, fix this. Check if compile and link can be done in one step.
-                let headers = self.headers.pop().unwrap();
-                // Step 1, build our own sources.
-                let mut own_objects = vec![];
-                let sources = graph.get_files(node);
-                for source in sources {
-                    println!("Compiling executable source: {}", source);
-                    let source_path = Path::new(&source);
-                    let source_name = source_path.file_name().unwrap().to_str().unwrap().to_owned(); 
-                    let object_file = format!("{}/{}.o", self.build_dir, source_name);
-
-                    let compile_instruction = WorkInstruction::Compile {
-                        source_file: source.clone(),
-                        include_dirs: headers.clone(),
-                        output_file: object_file.clone(),
-                    };
-                    self.work_instructions.push(compile_instruction);
-                    // TODO, fix unreliable build if more then one executable file is
-                    // specified. 
-                    own_objects.push(object_file);
-                }
-
-                // Step 2, combine our object files and that of our dependencies
-                let mut objects = vec![];
-                objects.extend(own_objects);
-                for dependency_objects in self.objects.iter() {
-                    objects.extend(dependency_objects.clone());
+                // Step 1, get all object files. 
+                let mut object_files = vec![];
+                for dep_data in self.dependency_data.iter() {
+                    match dep_data {
+                        TargetData::LIBRARY {object_files: lib_object_files, ..} => {
+                            object_files.extend(lib_object_files.to_vec());
+                        },
+                        TargetData::INTERFACE { .. } => {},
+                        _ => panic!("Unhelpful error message (:"),
+                    }
                 }
 
                 // TODO, add link flags.
-                // Step 3, execute the linker to combine all object files into one executable
+                // Step 2, execute the linker to combine all object files into one executable
                 let executable_file = format!("{}/{}", self.build_dir, name);
 
-                let executable_options = graph.get_options(node).unwrap();
+                let executable_options = self.graph.get_options(node).unwrap();
                 let link_libraries = if let DependencyOptions::ExecutableOptions { link_flags, link_libraries } = executable_options {
                     link_libraries.clone()
                 } else {
@@ -142,10 +129,11 @@ impl Instructor<'_> {
                 };
 
                 let link_instruction = WorkInstruction::Link {
-                    object_files: objects,
+                    object_files: object_files,
                     link_libraries: link_libraries,
                     output_file: executable_file.clone(),
                 };
+                self.work_instructions.push(link_instruction);
             },
         }
     }

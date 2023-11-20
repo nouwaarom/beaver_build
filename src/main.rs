@@ -54,7 +54,8 @@ fn main() {
 
     // Scheduler builds all targets parallel, depending on dependency
     let start = Instant::now();
-    let mut scheduler = Scheduler::new(16);
+    let build_directory = build_directory.to_str().unwrap().to_owned();
+    let mut scheduler = Scheduler::new(16, build_directory);
     scheduler.build_all(&dependency_graph);
     let duration = start.elapsed();
 

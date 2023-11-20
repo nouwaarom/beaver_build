@@ -6,6 +6,7 @@ use threadpool::ThreadPool;
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::mpsc::channel;
 
+#[derive(Clone)]
 pub enum WorkInstruction {
     Link {
         object_files: Vec<String>,
@@ -20,8 +21,8 @@ pub enum WorkInstruction {
 }
 
 pub struct WorkResult {
-    job_id: usize,
-    result: Result<String, String>,
+    pub job_id: usize,
+    pub result: Result<String, String>,
 }
 
 pub struct WorkPool {
