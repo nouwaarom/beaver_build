@@ -176,6 +176,11 @@ impl DependencyGraph {
         return node.requires.clone();
     }
 
+    pub fn get_nodes_that_depend_on(&self, node: Ref<DependencyNode>) -> Vec<Ref<DependencyNode>> {
+        let node = self.get_node(node);
+        return node.is_required_by.clone();
+    }
+
     pub fn get_type(&self, node: Ref<DependencyNode>) -> DependencyType {
         let node = self.get_node(node);
         return node.dep_type;

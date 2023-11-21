@@ -70,10 +70,12 @@ impl Instructor<'_> {
             DependencyType::LIBRARY => {
                 // Step 1, get required headers.
                 let mut include_dirs = vec![];
+                let mut object_files = vec![];
                 for dep_data in self.dependency_data.iter() {
                     match dep_data {
-                        TargetData::LIBRARY { include_dirs: lib_include_dirs, .. } => {
+                        TargetData::LIBRARY { include_dirs: lib_include_dirs, object_files: lib_object_files } => {
                             include_dirs.extend(lib_include_dirs.to_vec());
+                            object_files.extend(lib_object_files.to_vec());
                         },
                         TargetData::INTERFACE { include_dirs: lib_include_dirs } => {
                             include_dirs.extend(lib_include_dirs.to_vec());
@@ -82,7 +84,6 @@ impl Instructor<'_> {
                     }
                 }
 
-                let mut object_files = vec![];
                 let sources = self.graph.get_files(node);
                 for source in sources {
                     let source_path = Path::new(&source);
@@ -98,7 +99,7 @@ impl Instructor<'_> {
                     self.work_instructions.push(compile_instruction);
                 }
 
-                // TODO, create target data
+                // Create target data
                 self.target_data = Some(TargetData::LIBRARY {
                     include_dirs: include_dirs,
                     object_files: object_files,
@@ -118,8 +119,9 @@ impl Instructor<'_> {
                 }
 
                 // TODO, add link flags.
-                // Step 2, execute the linker to combine all object files into one executable
+                // Step 2, create link instructions to combine all object files into one executable
                 let executable_file = format!("{}/{}", self.build_dir, name);
+                println!("Linking {}", executable_file);
 
                 let executable_options = self.graph.get_options(node).unwrap();
                 let link_libraries = if let DependencyOptions::ExecutableOptions { link_flags, link_libraries } = executable_options {
@@ -134,6 +136,11 @@ impl Instructor<'_> {
                     output_file: executable_file.clone(),
                 };
                 self.work_instructions.push(link_instruction);
+
+                // Step 3, Create target data
+                self.target_data = Some(TargetData::EXECUTABLE {
+                    executable_file,
+                });
             },
         }
     }

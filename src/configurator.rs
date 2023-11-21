@@ -26,7 +26,7 @@ pub fn configure_clib_project(directory: &str) -> DependencyGraph {
         let split_by_slash: Vec<_> = executable_src.trim_end_matches(".c").split("/").collect();
         let executable_name = split_by_slash.last().unwrap();
         let executable_lib_name = format!("{}_lib", executable_name);
-        let executable_lib = dependency_graph.add_executable(&executable_lib_name, vec![executable_src.clone()]);
+        let executable_lib = dependency_graph.add_library(&executable_lib_name, vec![executable_src.clone()]);
         let executable = dependency_graph.add_executable(&executable_name, vec![]);
         // TODO, add a more modular way to configure this globally
         let executable_options = DependencyOptions::ExecutableOptions {

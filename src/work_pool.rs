@@ -199,6 +199,7 @@ impl Worker {
                 match output.status.code().unwrap() {
                     0 => {
                         let output_string = String::from_utf8(output.stdout.as_slice().to_vec()).expect("Invalid characters in output");
+                        println!("Linking done!");
                         return Ok(output_string);
                     },
                     a => {
