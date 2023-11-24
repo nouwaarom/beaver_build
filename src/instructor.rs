@@ -89,7 +89,6 @@ impl Instructor<'_> {
                     let source_path = Path::new(&source);
                     let source_name = source_path.file_name().unwrap().to_str().unwrap().to_owned(); 
                     let object_file = format!("{}/{}.o", self.build_dir, source_name);
-                    println!("Compiling {}", source);
                     let compile_instruction = WorkInstruction::Compile {
                         source_file: source.clone(),
                         include_dirs: include_dirs.clone(),
@@ -121,7 +120,6 @@ impl Instructor<'_> {
                 // TODO, add link flags.
                 // Step 2, create link instructions to combine all object files into one executable
                 let executable_file = format!("{}/{}", self.build_dir, name);
-                println!("Linking {}", executable_file);
 
                 let executable_options = self.graph.get_options(node).unwrap();
                 let link_libraries = if let DependencyOptions::ExecutableOptions { link_flags, link_libraries } = executable_options {

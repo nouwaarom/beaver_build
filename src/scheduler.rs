@@ -10,6 +10,7 @@ struct TargetStatus {
     number_of_unbuilt_dependencies: usize,
     is_built: bool,
     is_scheduled: bool,
+    has_error: bool,
     // Stores the job_ids this target is waiting for.
     job_ids: Vec<usize>,
 }
@@ -20,6 +21,7 @@ impl TargetStatus {
             number_of_unbuilt_dependencies: 0,
             is_built: false,
             is_scheduled: false,
+            has_error: false,
             job_ids: vec![],
         }
     }
@@ -76,15 +78,36 @@ impl Scheduler {
 
             for node in buildable_nodes {
                 let node_name = graph.get_name(node);
-                println!("Scheduling node: {}", node_name);
+
+                let mut dependencies_have_errors = false;
+                let mut dependencies_targetdata = vec![];
+                for dependency in graph.get_dependencies(node) {
+                    if self.target_status_map.get_mut(&dependency).unwrap().has_error {
+                        dependencies_have_errors = true;
+                        continue;
+                    }
+                    dependencies_targetdata.push(self.target_data_map[&dependency].clone());
+                }
+
+                // If one of the dependencies has an error we cannot schedule.
+                if dependencies_have_errors {
+                    // Mark target as done with errors to unlock nodes depending on it.
+                    println!("Cannot build {} because its dependencies have build errors.", node_name);
+                    self.target_status_map.get_mut(&node).unwrap().is_built = true;
+                    self.target_status_map.get_mut(&node).unwrap().is_scheduled = true;
+                    self.target_status_map.get_mut(&node).unwrap().has_error = true;
+                    self.target_status_map.get_mut(&node).unwrap().job_ids = vec![];
+                    // Make sure dependants will still be built.
+                    for dependant in graph.get_nodes_that_depend_on(node) {
+                        self.target_status_map.get_mut(&dependant).unwrap().number_of_unbuilt_dependencies -= 1;
+                    }
+                    continue;
+                }
+                println!("Scheduling {}", node_name);
+
                 // Step 2a) Create work instructions for these nodes.
                 instructor.reset();
                 instructor.set_node(node);
-
-                let mut dependencies_targetdata = vec![];
-                for dependency in graph.get_dependencies(node) {
-                    dependencies_targetdata.push(self.target_data_map[&dependency].clone());
-                }
                 instructor.set_dependency_targetdata(dependencies_targetdata);
                 instructor.process();
                 // Set target data so that dependants know what data this target produces.
@@ -101,9 +124,6 @@ impl Scheduler {
                 if job_ids.is_empty() {
                     self.target_status_map.get_mut(&node).unwrap().is_built = true;
                     for dependant in graph.get_nodes_that_depend_on(node) {
-                        let dependant_name = graph.get_name(dependant);
-                        println!("Node {} has {} remaining dependencies", dependant_name,
-                                 self.target_status_map.get_mut(&dependant).unwrap().number_of_unbuilt_dependencies);
                         self.target_status_map.get_mut(&dependant).unwrap().number_of_unbuilt_dependencies -= 1;
                     }
                 }
@@ -133,14 +153,18 @@ impl Scheduler {
             let index = target_data.job_ids.iter().position(|job_id| *job_id == result.job_id).unwrap();
             target_data.job_ids.remove(index);
 
+            match result.result {
+                Ok(_) => {},
+                Err(_) => {
+                    target_data.has_error = true;
+                },
+            }
+
             // Step 2d) Decrease the number of unbuilt dependencies for dependents of a finished target. 
             if target_data.job_ids.is_empty() {
                 target_data.is_built = true;
 
                 for dependant in graph.get_nodes_that_depend_on(*node) {
-                    let dependant_name = graph.get_name(dependant);
-                    println!("Node {} has {} remaining dependencies", dependant_name,
-                             self.target_status_map.get_mut(&dependant).unwrap().number_of_unbuilt_dependencies);
                     self.target_status_map.get_mut(&dependant).unwrap().number_of_unbuilt_dependencies -= 1;
                 }
             }
@@ -154,8 +178,6 @@ impl Scheduler {
         // Create target status
         let mut target_status = TargetStatus::new_unbuilt();
         let dependencies = graph.get_dependencies(node);
-        let node_name = graph.get_name(node);
-        println!("Node {} has {} dependencies", node_name, dependencies.len());
         target_status.number_of_unbuilt_dependencies = dependencies.len();
         self.target_status_map.insert(node, target_status);
 
